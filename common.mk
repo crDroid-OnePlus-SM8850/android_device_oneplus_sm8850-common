@@ -492,5 +492,10 @@ PRODUCT_COPY_FILES += \
 PRODUCT_COPY_FILES += \
     device/oneplus/sm8850-common/keylayout/touchpanel.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/touchpanel.kl
 
+# RKPD
+PRODUCT_PRODUCT_PROPERTIES += \
+    remote_provisioning.enable_rkpd=true \
+    remote_provisioning.hostname=remoteprovisioning.googleapis.com
+
 # Inherit from the proprietary files makefile.
 $(call inherit-product, vendor/oneplus/sm8850-common/sm8850-common-vendor.mk)
