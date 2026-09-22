@@ -985,6 +985,7 @@ odm/bin/oplus_sensor_fb
 odm/bin/oplus_sensor_logger_daemon
 odm/etc/init/init.oplus.sensor.rc
 odm/lib64/liboplus_service.so
+odm/lib64/libsensorbridge.so;EXTRACT_ONLY
 vendor/bin/hw/vendor.qti.hardware.sensorscalibrate-service
 vendor/bin/init.qcom.sensors.sh
 vendor/bin/qsap_dcfd
@@ -1181,7 +1182,6 @@ odm/lib64/liboplus-uah-client.so
 odm/etc/uah/uahconfig.pb
 odm/etc/init/vendor.oplus.hardware.urcc-service.rc
 odm/etc/vintf/manifest/vendor.oplus.hardware.urcc-service.xml
-system_ext/lib64/liboplus-uah-client.so
 system_ext/lib64/libUahPerf_Jni.so
 
 # Time services

@@ -22,6 +22,7 @@ namespace_imports = [
     'hardware/oplus',
     'hardware/qcom-caf/sm8850',
     'hardware/qcom-caf/wlan',
+    'proprietary/vendor/oneplus/camera-sm8850-common',
     'vendor/qcom/opensource/commonsys/display',
     'vendor/qcom/opensource/commonsys-intf/display',
     'vendor/qcom/opensource/dataservices',
@@ -30,6 +31,10 @@ namespace_imports = [
 
 def lib_fixup_vendor_suffix(lib: str, partition: str, *args, **kwargs):
     return f'{lib}_{partition}' if partition == 'vendor' else None
+
+
+def lib_fixup_system_ext_suffix(lib: str, partition: str, *args, **kwargs):
+    return f'{lib}_{partition}' if partition == 'system_ext' else None
 
 
 lib_fixups: lib_fixups_user_type = {
@@ -52,6 +57,9 @@ lib_fixups: lib_fixups_user_type = {
         'vendor.qti.qccsyshal_aidl-V1-ndk',
         'vendor.qti.qccvndhal_aidl-V1-ndk',
     ): lib_fixup_vendor_suffix,
+    (
+        'liboplus-uah-client',
+    ): lib_fixup_system_ext_suffix,
 }
 
 blob_fixups: blob_fixups_user_type = {
@@ -187,12 +195,46 @@ blob_fixups: blob_fixups_user_type = {
         .add_line_if_missing('libQnnGpu.so'),
 }  # fmt: skip
 
+
+def add_common_sensorbridge_module(ctx, *args, **kwargs):
+    ctx.bp_out.write(
+        '''cc_prebuilt_library_shared {
+    name: "libsensorbridge",
+    owner: "oneplus",
+    strip: {
+        none: true,
+    },
+    srcs: ["proprietary/odm/lib64/libsensorbridge.so"],
+    shared_libs: [
+        "android.frameworks.sensorservice-V1-ndk",
+        "android.hardware.sensors-V3-ndk",
+        "libbase",
+        "libbinder_ndk",
+        "libc++",
+        "libc",
+        "libdl",
+        "libm",
+        "libutils",
+    ],
+    compile_multilib: "64",
+    installable: false,
+    prefer: true,
+    device_specific: true,
+}
+
+'''
+    )
+
+
 module = ExtractUtilsModule(
     'sm8850-common',
     'oneplus',
     blob_fixups=blob_fixups,
     lib_fixups=lib_fixups,
     namespace_imports=namespace_imports,
+)
+module.proprietary_files[0].add_post_makefile_generation_fn(
+    add_common_sensorbridge_module
 )
 module.add_proprietary_file('proprietary-files-phone.txt').add_copy_files_guard(
     'TARGET_IS_TABLET', 'true', invert=True
