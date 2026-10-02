@@ -578,6 +578,7 @@ vendor/etc/media_codecs_canoe_v2.xml
 vendor/etc/media_codecs_canoe_v2_vendor.xml
 vendor/etc/media_codecs_canoe_v3.xml
 vendor/etc/media_codecs_canoe_v3_vendor.xml
+odm/etc/media_codecs_dolby_vision.xml:vendor/etc/media_codecs_dolby_vision.xml
 vendor/etc/media_codecs_performance_canoe_sku1.xml
 vendor/etc/media_codecs_performance_canoe_sku1_vendor.xml
 vendor/etc/media_codecs_performance_canoe_sku2.xml
@@ -984,7 +985,7 @@ odm/bin/oplus_sensor_fb
 odm/bin/oplus_sensor_logger_daemon
 odm/etc/init/init.oplus.sensor.rc
 odm/lib64/liboplus_service.so
-odm/lib64/libsensorbridge.so
+odm/lib64/libsensorbridge.so;EXTRACT_ONLY
 vendor/bin/hw/vendor.qti.hardware.sensorscalibrate-service
 vendor/bin/init.qcom.sensors.sh
 vendor/bin/qsap_dcfd
@@ -1181,7 +1182,6 @@ odm/lib64/liboplus-uah-client.so
 odm/etc/uah/uahconfig.pb
 odm/etc/init/vendor.oplus.hardware.urcc-service.rc
 odm/etc/vintf/manifest/vendor.oplus.hardware.urcc-service.xml
-system_ext/lib64/liboplus-uah-client.so
 system_ext/lib64/libUahPerf_Jni.so
 
 # Time services
@@ -1310,3 +1310,17 @@ vendor/lib64/libwfduibcsrcinterface_vendor.so
 vendor/lib64/libwfdutils_proprietary.so
 vendor/lib64/vendor.qti.hardware.wifidisplaysession_aidl-V1-ndk.so;MODULE_SUFFIX=_vendor
 vendor/lib64/vendor.qti.hardware.wifidisplaysessionl@1.0-halimpl.so
+
+# Camera (Oplus camera port): ShareBuffer allocator, dlopen'd by libsharebuffer.so
+# and resolved via createShareBufferAllocator. It links the platform libui/libutils
+# from /vendor/lib64 - do NOT remap it onto private -stock copies. Doing so puts a
+# second instance of libui/libutils in the process, so the allocator singleton no
+# longer holds an AndroidShareBufferAllocator and ShareBuffer_CheckBufferPool
+# tail-branches through a vtable slot that does not exist.
+odm/lib64/libsharebuffer_impl.so
+
+# Dolby Vision Service
+odm/bin/hw/dvs-aidl-service
+odm/etc/init/dvs-aidl-service.rc
+odm/etc/vintf/manifest/dvs-aidl-service.xml
+odm/lib64/vendor.dolby.dvs-V1-ndk.so

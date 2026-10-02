@@ -218,6 +218,7 @@ VENDOR_SECURITY_PATCH := $(BOOT_SECURITY_PATCH)
 # SEPolicy
 include device/qcom/sepolicy_vndr/SEPolicy.mk
 include hardware/oplus/sepolicy/qti/SEPolicy.mk
+BOARD_VENDOR_SEPOLICY_DIRS += $(COMMON_PATH)/sepolicy/vendor
 
 # Verified Boot
 BOARD_AVB_ENABLE := true
@@ -269,3 +270,6 @@ WPA_SUPPLICANT_VERSION := VER_0_8_X
 
 # Include the proprietary files BoardConfig.
 include vendor/oneplus/sm8850-common/BoardConfigVendor.mk
+
+# Include the Oplus camera port board flags when the camera stack is present.
+-include vendor/oneplus/camera-sm8850-common/BoardConfig.mk

@@ -22,6 +22,7 @@ namespace_imports = [
     'hardware/oplus',
     'hardware/qcom-caf/sm8850',
     'hardware/qcom-caf/wlan',
+    'proprietary/vendor/oneplus/camera-sm8850-common',
     'vendor/qcom/opensource/commonsys/display',
     'vendor/qcom/opensource/commonsys-intf/display',
     'vendor/qcom/opensource/dataservices',
@@ -30,6 +31,10 @@ namespace_imports = [
 
 def lib_fixup_vendor_suffix(lib: str, partition: str, *args, **kwargs):
     return f'{lib}_{partition}' if partition == 'vendor' else None
+
+
+def lib_fixup_system_ext_suffix(lib: str, partition: str, *args, **kwargs):
+    return f'{lib}_{partition}' if partition == 'system_ext' else None
 
 
 lib_fixups: lib_fixups_user_type = {
@@ -52,6 +57,9 @@ lib_fixups: lib_fixups_user_type = {
         'vendor.qti.qccsyshal_aidl-V1-ndk',
         'vendor.qti.qccvndhal_aidl-V1-ndk',
     ): lib_fixup_vendor_suffix,
+    (
+        'liboplus-uah-client',
+    ): lib_fixup_system_ext_suffix,
 }
 
 blob_fixups: blob_fixups_user_type = {
@@ -95,11 +103,38 @@ blob_fixups: blob_fixups_user_type = {
         .replace_needed('libprotobuf-cpp-lite.so', 'libprotobuf-cpp-lite-21.12.so'),
     'system_ext/lib64/libwfdnative.so': blob_fixup()
         .add_needed('libinput_shim.so'),
+    # Inject Dolby Vision codec include into every non-vendor canoe variant (DV nodes live in
+    # odm/etc/media_codecs_dolby_vision.xml, remapped to vendor/etc/ so MediaCodecsXmlParser
+    # can resolve <Include href="..."/> relative to the same /vendor/etc/ search dir).
+    # Empirically verified on device: pushing dolby_vision.xml to /vendor/etc/ and adding
+    # the Include to canoe_v2.xml caused c2.qti.dv.{decoder,decoder.secure,encoder} to appear
+    # in IComponentStore/default after reboot — confirmed via dumpsys.
     (
+        'vendor/etc/media_codecs_canoe_sku1.xml',
+        'vendor/etc/media_codecs_canoe_sku2.xml',
         'vendor/etc/media_codecs_canoe_sku3.xml',
+        'vendor/etc/media_codecs_canoe_v1.xml',
         'vendor/etc/media_codecs_canoe_v2.xml',
     ): blob_fixup()
-        .regex_replace('.*media_codecs_(google_audio|google_c2|google_telephony|google_video|vendor_audio).*\n', ''),
+        .regex_replace('.*media_codecs_(google_audio|google_c2|google_telephony|google_video|vendor_audio).*\n', '')
+        .regex_replace(r'([ \t]*</MediaCodecs>)', r'    <Include href="media_codecs_dolby_vision.xml" />\n\1'),
+    # Dolby Vision: the c2.qti.dv decoder/decoder.secure/encoder nodes ship COMMENTED in the
+    # *_vendor.xml codec variants — and those (not the non-vendor canoe_v2.xml) are the files the
+    # framework's Codec2InfoBuilder parses. Un-comment them in place so MediaCodecList registers DV
+    # and VIDEO -> Dolby Vision recording can create c2.qti.dv.encoder (else it aborts with no file).
+    # Mirrors OnePlus stock (ships them commented) and the sm8750/sun fixup. Device-verified.
+    (
+        'vendor/etc/media_codecs_canoe_v1_vendor.xml',
+        'vendor/etc/media_codecs_canoe_v2_vendor.xml',
+        'vendor/etc/media_codecs_canoe_sku1_vendor.xml',
+        'vendor/etc/media_codecs_canoe_sku2_vendor.xml',
+    ): blob_fixup()
+        .regex_replace(r'<!--\s*<MediaCodec name="c2\.qti\.dv\.decoder" type="video/dolby-vision" >',
+                       r'<MediaCodec name="c2.qti.dv.decoder" type="video/dolby-vision" >')
+        .regex_replace(r'\n[ \t]*-->(\s*</Decoders>)', r'\1')
+        .regex_replace(r'<!--\s*<MediaCodec name="c2\.qti\.dv\.encoder" type="video/dolby-vision">',
+                       r'<MediaCodec name="c2.qti.dv.encoder" type="video/dolby-vision">')
+        .regex_replace(r'\n[ \t]*-->(\s*</Encoders>)', r'\1'),
     (
         'vendor/lib64/hw/android.hardware.bluetooth.audio_sw.so',
         'vendor/lib64/hw/libaudiocorehal.default.so',
@@ -143,7 +178,53 @@ blob_fixups: blob_fixups_user_type = {
         .add_needed('libbase.so'),
     'vendor/usr/keylayout/gpio-keys.kl': blob_fixup()
         .add_line_if_missing('key 735   ASSIST'),
+    # APS turbo fix: on the port, the camera app's classloader namespace cannot dlopen the /odm
+    # ArcSoft/QNN helper libs (couple-HDR, turbo, QNN HTP), which gates the DSP/QNN path so turbo
+    # can't run. Exposing them as vendor public libraries lets the app namespace resolve them.
+    # Adapted from sm8750-common; SM8850 (canoe) uses QnnHtpV81Stub (not V79).
+    'vendor/etc/public.libraries.txt': blob_fixup()
+        .add_line_if_missing('libarcsoft_hdr_couple_api.so')
+        .add_line_if_missing('libarcsoft_high_dynamic_range_couple.so')
+        .add_line_if_missing('libarcsoft_smart_denoise.so')
+        .add_line_if_missing('libarcsoft_turbo_hdr_raw.so')
+        .add_line_if_missing('libarcsoft_turbo_raw.so')
+        .add_line_if_missing('libarcsoft_qnnhtp.so')
+        .add_line_if_missing('libQnnHtp.so')
+        .add_line_if_missing('libQnnSystem.so')
+        .add_line_if_missing('libQnnHtpV81Stub.so')
+        .add_line_if_missing('libQnnGpu.so'),
 }  # fmt: skip
+
+
+def add_common_sensorbridge_module(ctx, *args, **kwargs):
+    ctx.bp_out.write(
+        '''cc_prebuilt_library_shared {
+    name: "libsensorbridge",
+    owner: "oneplus",
+    strip: {
+        none: true,
+    },
+    srcs: ["proprietary/odm/lib64/libsensorbridge.so"],
+    shared_libs: [
+        "android.frameworks.sensorservice-V1-ndk",
+        "android.hardware.sensors-V3-ndk",
+        "libbase",
+        "libbinder_ndk",
+        "libc++",
+        "libc",
+        "libdl",
+        "libm",
+        "libutils",
+    ],
+    compile_multilib: "64",
+    installable: false,
+    prefer: true,
+    device_specific: true,
+}
+
+'''
+    )
+
 
 module = ExtractUtilsModule(
     'sm8850-common',
@@ -151,6 +232,9 @@ module = ExtractUtilsModule(
     blob_fixups=blob_fixups,
     lib_fixups=lib_fixups,
     namespace_imports=namespace_imports,
+)
+module.proprietary_files[0].add_post_makefile_generation_fn(
+    add_common_sensorbridge_module
 )
 module.add_proprietary_file('proprietary-files-phone.txt').add_copy_files_guard(
     'TARGET_IS_TABLET', 'true', invert=True

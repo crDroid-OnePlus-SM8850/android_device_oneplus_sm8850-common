@@ -7,6 +7,9 @@
 # Add common definitions for Qualcomm
 $(call inherit-product, hardware/qcom-caf/common/common.mk)
 
+# SM8850 device kernels use 4K pages; keep check_elf_file on the 4K alignment gate.
+PRODUCT_MAX_PAGE_SIZE_SUPPORTED := 4096
+
 # A/B
 $(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota/launch_with_vendor_ramdisk.mk)
 
@@ -97,6 +100,7 @@ PRODUCT_PACKAGES += \
     android.hardware.boot-service.qti.recovery
 
 # Camera
+$(call soong_config_set,camera,allow_nonincreasing_timestamps,true)
 PRODUCT_PACKAGES += \
     android.hardware.camera.provider-V3-ndk.vendor
 
@@ -335,6 +339,11 @@ PRODUCT_PACKAGES += \
     android.hardware.sensors-service.multihal \
     sensors.dynamic_sensor_hal
 
+ifeq ($(filter %_infiniti,$(TARGET_PRODUCT)),)
+PRODUCT_COPY_FILES += \
+    vendor/oneplus/sm8850-common/proprietary/odm/lib64/libsensorbridge.so:$(TARGET_COPY_OUT_ODM)/lib64/libsensorbridge.so
+endif
+
 PRODUCT_COPY_FILES += \
     frameworks/native/data/etc/android.hardware.sensor.accelerometer.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.accelerometer.xml \
     frameworks/native/data/etc/android.hardware.sensor.ambient_temperature.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.sensor.ambient_temperature.xml \
@@ -455,6 +464,7 @@ endif
 # VINTF
 DEVICE_FRAMEWORK_COMPATIBILITY_MATRIX_FILE += \
     hardware/oplus/vintf/device_framework_matrix.xml \
+    device/oneplus/sm8850-common/vintf/device_framework_matrix.xml \
     hardware/qcom-caf/common/vendor_framework_compatibility_matrix.xml
 DEVICE_MANIFEST_FILE := \
     $(LOCAL_PATH)/vintf/manifest_canoe.xml
