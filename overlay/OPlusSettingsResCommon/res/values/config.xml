@@ -9,4 +9,10 @@
 
     <!-- Max network scan search time in seconds -->
     <integer name="config_network_scan_helper_max_search_time_sec">254</integer>
+
+    <!-- The Oplus charger driver reports the battery current in mA instead of uA, so the charging
+     power thresholds below (uW) are scaled down by 1000 to keep the same meaning -->
+    <integer name="config_chargingSlowlyThreshold">5000</integer>
+    <integer name="config_chargingFastThreshold">7500</integer>
+    <integer name="config_chargingFastThreshold_v2">20000</integer>
 </resources>
